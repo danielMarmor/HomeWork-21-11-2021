@@ -1,0 +1,170 @@
+import shelve
+import sqlite3
+import os.path
+
+
+class Grade:
+    def __init__(self, grade_id = None, subject_name=None, student_id=None, grade=None):
+        self.grade_id = grade_id
+        self.subject_name = subject_name
+        self.student_id = student_id
+        self.grade = grade
+
+    def __str__(self):
+        return f'GradeId: {self.grade_id}, SubjectName: {self.subject_name} ' \
+               f'StudentId: {self.student_id}, Grade: {self.grade}'
+
+    def __repr__(self):
+        return f'Grade({self.grade_id}, {self.subject_name}, {self.student_id}, {self.grade})'
+
+
+class GradesShelveService:
+    @staticmethod
+    def get_data_source(shelve_name):
+        sh = shelve.open(shelve_name)
+        return sh
+
+    @staticmethod
+    def close_data_source(sh):
+        sh.close()
+
+    @staticmethod
+    def clear_data_source(sh):
+        sh.clear()
+
+    @staticmethod
+    def init_grades(sh):
+        GradesShelveService.clear_data_source(sh)
+        grade1 = Grade('1', 'History', 1, 100)
+        grade2 = Grade('2', 'Geography', 2, 90)
+        grade3 = Grade('3', 'Computing', 2, 80)
+        grade4 = Grade('4', 'History', 2, 76)
+
+        sh[grade1.grade_id] = grade1.__dict__
+        sh[grade2.grade_id] = grade2.__dict__
+        sh[grade3.grade_id] = grade3.__dict__
+        sh[grade4.grade_id] = grade4.__dict__
+
+    @staticmethod
+    def get_grade_by_id(sh: shelve, grade_id):
+        keys = list(sh.keys())
+        is_exist_grade = grade_id in keys
+        if not is_exist_grade:
+            return None
+        grade = Grade()
+        grade.__dict__ = sh[grade_id]
+        return grade
+
+    @staticmethod
+    def get_grades_by_student_id(sh, student_id):
+        student_grades = [grade for grade_id, grade in sh.items() if grade['student_id'] == student_id]
+        grades = []
+        for grd in student_grades:
+            new_grade = Grade(grd['grade_id'], grd['subject_name'], grd['student_id'], grd['grade'])
+            grades.append(new_grade)
+        return grades
+
+
+class GradesSqlLiteService:
+    @staticmethod
+    def get_data_source(source_name):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(base_dir, source_name)
+        db = sqlite3.connect(db_path)
+        return db
+
+    @staticmethod
+    def init_grades(db):
+        GradesSqlLiteService.clear_data_source(db)
+        cursor = db.cursor()
+        cursor.execute(f'INSERT INTO Grade VALUES(1, \'History\', 1, 100')
+        cursor.execute(f'INSERT INTO Grade VALUES(2, \'Geography\', 2, 80')
+        cursor.execute(f'INSERT INTO Grade VALUES(3, \'Computing\', 2, 76')
+        cursor.execute(f'INSERT INTO Grade VALUES(4, \'History\', 2, 92')
+        db.commit()
+
+    @staticmethod
+    def close_data_source(db):
+        db.close()
+
+    @staticmethod
+    def clear_data_source(db):
+        cursor = db.cursor()
+        delete_query = 'DELETE FROM Grade'
+        cursor.execute(delete_query)
+        db.commit()
+
+    @staticmethod
+    def get_grade_by_id(db, grade_id):
+        select_grade_qry = f'Select * from Grade where Id={grade_id}'
+        grade_cur = db.execute(select_grade_qry)
+        if len(grade_cur) == 0:
+            return None
+        columns = {desc[1][0]: desc[0] for desc in enumerate(grade_cur.description)}
+        row = grade_cur[0]
+        grade = Grade(row[columns['GradeId']], row[columns['SubjectName']], row[columns['StudentId']],
+                      row[columns['Grade']])
+        return Grade
+
+
+def single_grade_presentation_shelve():
+    sh = GradesShelveService.get_data_source('grades.db')
+    GradesShelveService.init_grades(sh)
+    while True:
+        gradeid = str(input('Enter Grade Id: (Quit - 0)'))
+        if gradeid == '0':
+            break
+        grade = GradesShelveService.get_grade_by_id(sh, gradeid)
+        if grade is None:
+            print('No Grade Exist!')
+            continue
+        print(grade)
+
+    GradesShelveService.close_data_source(sh)
+
+
+def student_grades_presentation_shelve():
+    sh = GradesShelveService.get_data_source('grades.db')
+    GradesShelveService.init_grades(sh)
+    while True:
+        studentid = int(input('Enter Student Id: (Quit - 0)'))
+        if studentid == '0':
+            break
+        grades = GradesShelveService.get_grades_by_student_id(sh, studentid)
+        if len(grades) == 0:
+            print('No Grades Exist for Student!')
+            continue
+        print(grades)
+
+    GradesShelveService.close_data_source(sh)
+
+
+def single_grade_presentation_sqllite():
+    db = GradesSqlLiteService.get_data_source('grades.db')
+    GradesSqlLiteService.init_grades(db)
+    while True:
+        gradeid = int(input('Enter Grade Id: (Quit - 0)'))
+        if gradeid == 0:
+            break
+        grade = GradesSqlLiteService.get_grade_by_id(db, gradeid)
+        if grade is None:
+            print('No Grade Exist!')
+            continue
+        print(grade)
+
+    GradesSqlLiteService.close_data_source(db)
+
+
+single_grade_presentation_shelve()
+student_grades_presentation_shelve()
+
+##NOT WORKING !  sqlite3.OperationalError: no such table: Grade
+# check it out for next lesson
+single_grade_presentation_sqllite()
+
+
+
+
+
+
+
